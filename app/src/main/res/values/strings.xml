@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Place Name Generator</string>
+    <string name="title_advanced_place_name_generator">Advanced Place Name Generator</string>
+    <string name="btn_generate_names">Generate Names</string>
+    <string name="btn_view_saved">View Saved Names</string>
+    <string name="opt_normal">Normal</string>
+    <string name="opt_two_part">Two-Part</string>
+    <string name="opt_short">Short</string>
+    <string name="opt_long">Long</string>
+    <string name="saved_names_title">Saved Names</string>
+    <string name="btn_copy">Copy</string>
+    <string name="btn_copied">Copied!</string>
+    <string name="btn_update_list">Update List</string>
+    <string name="saved_count_format">Saved Names: %1$d</string>
+    <string name="close">Close</string>
+    <string name="save_name_desc">Save name to list</string>
+</resources>
