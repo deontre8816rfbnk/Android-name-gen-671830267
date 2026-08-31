@@ -59,7 +59,8 @@ object NameGeneratorEngine {
     private val customCombinations = mutableListOf<String>()
     private val usedNames = mutableSetOf<String>()
 
-    // === CONTEXTUAL LEARNING STATE ===    private val learnedNames = mutableListOf<String>()
+    // === CONTEXTUAL LEARNING STATE ===
+    private val learnedNames = mutableListOf<String>()
     private val learnedSyllables = mutableListOf<String>()
 
     // === DYNAMIC INTERVAL STATE ===
