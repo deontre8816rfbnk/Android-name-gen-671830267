@@ -43,12 +43,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Used if the user wants to manually change the assigned MD file later
     private val changeDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
             saveMdUriAndPermissions(uri)
+            readAndProcessNames(uri)
             Toast.makeText(this, "Markdown file updated!", Toast.LENGTH_SHORT).show()
         }
     }
@@ -56,15 +56,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
         // Setup Immersive Full Screen Mode
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.systemBars())
 
-        // Load the saved MD file URI (if any)
         savedMdUri = sharedPrefs.getString("md_uri", null)
+
+        // If a file is already assigned, read it immediately to learn existing names
+        savedMdUri?.let { 
+            readAndProcessNames(Uri.parse(it)) 
+        }
 
         setContent {
             MyApplicationTheme {
@@ -76,16 +80,13 @@ class MainActivity : ComponentActivity() {
                             pendingMarkdownContent = markdown
                             val currentUri = savedMdUri
                             if (currentUri != null) {
-                                // File is already assigned, write directly!
                                 writeMarkdownToUri(Uri.parse(currentUri), markdown)
                                 pendingMarkdownContent = null
                             } else {
-                                // No file assigned yet, ask user to pick one
                                 openDocumentLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*"))
                             }
                         },
                         onChangeMdFile = {
-                            // Trigger file picker to change the assigned MD file
                             changeDocumentLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*"))
                         }
                     )
@@ -98,7 +99,7 @@ class MainActivity : ComponentActivity() {
         try {
             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             contentResolver.takePersistableUriPermission(uri, takeFlags)
-            
+
             savedMdUri = uri.toString()
             sharedPrefs.edit().putString("md_uri", savedMdUri).apply()
         } catch (e: SecurityException) {
@@ -136,14 +137,37 @@ class MainActivity : ComponentActivity() {
             }
 
             Toast.makeText(this, "Names saved to Markdown file", Toast.LENGTH_SHORT).show()
+            
+            // After saving, read the file again to update the learning context
+            readAndProcessNames(uri)
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error saving file: ${e.message}", Toast.LENGTH_LONG).show()
-            // If the file was deleted or moved, clear the saved URI
             if (e is java.io.FileNotFoundException || e is SecurityException) {
                 sharedPrefs.edit().remove("md_uri").apply()
                 savedMdUri = null
             }
+        }
+    }
+
+    private fun readAndProcessNames(uri: Uri) {
+        try {
+            val existingContent = readTextFromUri(uri) ?: return
+            
+            // Parse ONLY the Name column (1st column), ignore all other metadata/stats
+            val parsedNames = existingContent.lines()
+                .filter { it.startsWith("|") && !it.contains("Name") && !it.contains("------") }
+                .mapNotNull { row ->
+                    // Split by |, trim, and get the first column (index 1 after split)
+                    val parts = row.split("|").map { p -> p.trim() }
+                    if (parts.size > 1 && parts[1].isNotEmpty()) parts[1] else null
+                }
+
+            if (parsedNames.isNotEmpty()) {
+                viewModel.processLearnedNames(parsedNames)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
