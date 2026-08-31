@@ -1,5 +1,6 @@
 package com.example
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -13,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.example.ui.theme.MyApplicationTheme
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -22,14 +26,16 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: NameGeneratorViewModel by viewModels()
 
-    // Holds the markdown content waiting to be written
     private var pendingMarkdownContent: String? = null
 
-    // SAF: Open existing document to append / overwrite
+    private val sharedPrefs by lazy { getSharedPreferences("NameGenPrefs", Context.MODE_PRIVATE) }
+    private var savedMdUri: String? = null
+
     private val openDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null && pendingMarkdownContent != null) {
+            saveMdUriAndPermissions(uri)
             writeMarkdownToUri(uri, pendingMarkdownContent!!)
             pendingMarkdownContent = null
         } else {
@@ -37,21 +43,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // SAF: Create a new document
-    private val createDocumentLauncher = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("text/markdown")
+    // Used if the user wants to manually change the assigned MD file later
+    private val changeDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        if (uri != null && pendingMarkdownContent != null) {
-            writeMarkdownToUri(uri, pendingMarkdownContent!!)
-            pendingMarkdownContent = null
-        } else {
-            Toast.makeText(this, "No file created", Toast.LENGTH_SHORT).show()
+        if (uri != null) {
+            saveMdUriAndPermissions(uri)
+            Toast.makeText(this, "Markdown file updated!", Toast.LENGTH_SHORT).show()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // Setup Immersive Full Screen Mode
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+
+        // Load the saved MD file URI (if any)
+        savedMdUri = sharedPrefs.getString("md_uri", null)
+
         setContent {
             MyApplicationTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -59,10 +73,20 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         modifier = Modifier.padding(innerPadding),
                         onSaveToMarkdown = { markdown ->
-                            // Launch SAF to let user pick or create the .md file
                             pendingMarkdownContent = markdown
-                            // Prefer opening existing so we can append
-                            openDocumentLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*"))
+                            val currentUri = savedMdUri
+                            if (currentUri != null) {
+                                // File is already assigned, write directly!
+                                writeMarkdownToUri(Uri.parse(currentUri), markdown)
+                                pendingMarkdownContent = null
+                            } else {
+                                // No file assigned yet, ask user to pick one
+                                openDocumentLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*"))
+                            }
+                        },
+                        onChangeMdFile = {
+                            // Trigger file picker to change the assigned MD file
+                            changeDocumentLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*"))
                         }
                     )
                 }
@@ -70,17 +94,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun writeMarkdownToUri(uri: Uri, newTableContent: String) {
+    private fun saveMdUriAndPermissions(uri: Uri) {
         try {
-            // Take persistable permission so we can access it later if needed
             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             contentResolver.takePersistableUriPermission(uri, takeFlags)
+            
+            savedMdUri = uri.toString()
+            sharedPrefs.edit().putString("md_uri", savedMdUri).apply()
+        } catch (e: SecurityException) {
+            Toast.makeText(this, "Could not persist file permission: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
 
-            // Read existing content (so we can append instead of overwrite)
+    private fun writeMarkdownToUri(uri: Uri, newTableContent: String) {
+        try {
             val existingContent = readTextFromUri(uri) ?: ""
 
             val finalContent = if (existingContent.contains("| Name |") || existingContent.contains("|------|")) {
-                // Already has a table → append new rows only
                 val newRows = newTableContent
                     .lines()
                     .filter { it.startsWith("|") && !it.contains("Name") && !it.contains("------") }
@@ -92,7 +122,6 @@ class MainActivity : ComponentActivity() {
                     existingContent.trimEnd() + "\n" + newRows + "\n"
                 }
             } else {
-                // No table yet → write full table (or append after existing notes)
                 if (existingContent.isBlank()) {
                     newTableContent
                 } else {
@@ -100,7 +129,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Write back
             contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
                 OutputStreamWriter(outputStream).use { writer ->
                     writer.write(finalContent)
@@ -111,6 +139,11 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error saving file: ${e.message}", Toast.LENGTH_LONG).show()
+            // If the file was deleted or moved, clear the saved URI
+            if (e is java.io.FileNotFoundException || e is SecurityException) {
+                sharedPrefs.edit().remove("md_uri").apply()
+                savedMdUri = null
+            }
         }
     }
 
