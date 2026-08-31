@@ -111,34 +111,48 @@ class MainActivity : ComponentActivity() {
         try {
             val existingContent = readTextFromUri(uri) ?: ""
             
-            // Extract just the rows from the incoming content
-            val newRows = newRowsContent.lines()
-                .filter { it.startsWith("|") && !it.contains("Name") && !it.contains("------") }
+            // Extract just the names from the incoming markdown rows
+            val newNames = newRowsContent.lines()
+                .filter { it.trim().startsWith("|") && !it.contains("Name") && !it.contains("---") && !it.contains("------") }
+                .map { it.replace("|", "").trim() }
+                .filter { it.isNotEmpty() }
 
-            val finalContent: String
+            if (newNames.isEmpty()) {
+                Toast.makeText(this, "No valid names to save", Toast.LENGTH_SHORT).show()
+                return
+            }
 
-            // Check if the file already has a unified table
-            if (existingContent.contains("| Name |") && existingContent.contains("|------|")) {
-                // Find the separator and insert the new rows directly underneath it
-                val separatorIndex = existingContent.indexOf("|------|")
-                if (separatorIndex != -1) {
-                    val insertPosition = separatorIndex + "|------|".length
-                    val before = existingContent.substring(0, insertPosition)
-                    val after = existingContent.substring(insertPosition)
-                    
-                    // Splice the new rows right into the existing table
-                    finalContent = before + "\n" + newRows.joinToString("\n") + after
-                } else {
-                    // Fallback to appending at the end
-                    finalContent = existingContent.trimEnd() + "\n" + newRows.joinToString("\n") + "\n"
+            // Convert back to strict rows to insert
+            val newRowsToInsert = newNames.map { "| $it |" }
+
+            val lines = existingContent.lines().toMutableList()
+            var separatorIndex = -1
+            
+            // Bulletproof table separator detection: finds any line like |---| or | --- | or |------|
+            for (i in lines.indices) {
+                val line = lines[i].trim()
+                if (line.startsWith("|") && line.endsWith("|")) {
+                    val inner = line.drop(1).dropLast(1).replace(" ", "")
+                    if (inner.isNotEmpty() && inner.all { it == '-' }) {
+                        separatorIndex = i
+                        break
+                    }
                 }
+            }
+            
+            val finalContent: String
+            
+            if (separatorIndex != -1) {
+                // Table exists! Insert rows strictly AFTER the separator line.
+                lines.addAll(separatorIndex + 1, newRowsToInsert)
+                finalContent = lines.joinToString("\n")
             } else {
-                // No table exists yet in the file, create the unified table
-                val tableHeader = "| Name |\n|------|\n"
+                // Only if absolutely NO table exists in the file, create one at the bottom
+                val tableHeader = "| Name |\n|------|"
                 finalContent = if (existingContent.isBlank()) {
-                    tableHeader + newRows.joinToString("\n")
+                    "$tableHeader\n${newRowsToInsert.joinToString("\n")}"
                 } else {
-                    existingContent.trimEnd() + "\n\n" + tableHeader + newRows.joinToString("\n")
+                    "${existingContent.trimEnd()}\n\n$tableHeader\n${newRowsToInsert.joinToString("\n")}"
                 }
             }
 
@@ -166,9 +180,8 @@ class MainActivity : ComponentActivity() {
         try {
             val existingContent = readTextFromUri(uri) ?: return
             
-            // Parse ONLY the Name column (1st column), ignore all other metadata/stats
             val parsedNames = existingContent.lines()
-                .filter { it.startsWith("|") && !it.contains("Name") && !it.contains("------") }
+                .filter { it.trim().startsWith("|") && !it.contains("Name") && !it.contains("---") && !it.contains("------") }
                 .mapNotNull { row ->
                     val parts = row.split("|").map { p -> p.trim() }
                     if (parts.size > 1 && parts[1].isNotEmpty()) parts[1] else null
