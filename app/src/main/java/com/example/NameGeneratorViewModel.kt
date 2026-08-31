@@ -128,6 +128,21 @@ class NameGeneratorViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
+    // Bug fix: Clear the saved names from memory after writing to MD to prevent duplicates
+    fun clearSavedNames() {
+        _uiState.update {
+            it.copy(
+                savedNames = emptyList(),
+                savedModalText = ""
+            )
+        }
+    }
+
+    // Bridge for Contextual Learning
+    fun processLearnedNames(names: List<String>) {
+        NameGeneratorEngine.ingestLearnedNames(names)
+    }
+
     fun getSavedNamesAsMarkdownTable(): String {
         val names = _uiState.value.savedNames
         if (names.isEmpty()) return "| Name |\n|------|\n"
@@ -166,13 +181,11 @@ class NameGeneratorViewModel(application: Application) : AndroidViewModel(applic
             .split("\n", ",", " ")
             .map { it.trim().lowercase() }
             .filter { it.length in 2..12 }
-            .toSet() // Use set to avoid duplicates
+            .toSet()
 
-        // Update Engine
         NameGeneratorEngine.clearCustomCombinations()
         NameGeneratorEngine.addCustomCombinations(combos.toList())
 
-        // Persist to Device Storage so they are never lost
         sharedPrefs.edit().putStringSet("custom_combinations", combos).apply()
 
         _uiState.update {
