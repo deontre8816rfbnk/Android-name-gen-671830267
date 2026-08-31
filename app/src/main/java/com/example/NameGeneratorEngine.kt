@@ -8,7 +8,7 @@ enum class NameStyle(val displayName: String, val key: String) {
     SHORT("Short", "short"),
     LONG("Long", "long"),
     GERMAN("German", "german"),
-    FRENCH("French", "french"), // Added French as requested
+    FRENCH("French", "french"),
     SPANISH("Spanish", "spanish"),
     BRITISH("British", "british"),
     AMERICAN("American", "american"),
@@ -21,7 +21,6 @@ enum class NameStyle(val displayName: String, val key: String) {
 object NameGeneratorEngine {
 
     // === REAL-LIFE NAME BASES ===
-    // Used as a foundation, then mutated to create new, natural-sounding names
     private val normalBases = listOf("Arthur", "Elara", "Roland", "Lyra", "Kael", "Rowan", "Nyx", "Sylas", "Elowen", "Gael", "Isolde", "Tristan", "Mira", "Dorian", "Vera", "Finn", "Luna", "Leo", "Maeve", "Silas")
     private val germanBases = listOf("Albert", "Friedrich", "Ludwig", "Heinrich", "Wilhelm", "Stefan", "Lukas", "Markus", "Jurgen", "Klaus", "Werner", "Felix")
     private val frenchBases = listOf("Louis", "Antoine", "Pierre", "Jacques", "Michel", "Laurent", "Pascal", "Dominique", "Claude", "Marc", "Paul", "Henri")
@@ -33,10 +32,8 @@ object NameGeneratorEngine {
     private val japaneseBases = listOf("Haruto", "Yuto", "Sota", "Yuki", "Hiroshi", "Kenji", "Riku", "Kaito", "Sora", "Rin", "Aoi", "Ren")
     private val chineseBases = listOf("Wei", "Feng", "Tao", "Jun", "Lei", "Hao", "Ming", "Chen", "Yu", "Lin", "Jian", "Hui")
 
-    // Mutations to apply to real names to make them "weird/new" but valid
     private val mutationSuffixes = listOf("us", "ia", "iel", "is", "an", "or", "yx", "ax", "eth", "in", "os", "ar")
 
-    // Vocalization maps for cultures that use them
     private val vocalizationMap = mapOf(
         'a' to listOf('á', 'à', 'â', 'ä'),
         'e' to listOf('é', 'è', 'ê', 'ë'),
@@ -48,7 +45,6 @@ object NameGeneratorEngine {
         'g' to listOf('ğ')
     )
     
-    // Cultures that are allowed to have vocalizations
     private val vocalizedCultures = listOf(NameStyle.FRENCH, NameStyle.GERMAN, NameStyle.SPANISH, NameStyle.TURKISH)
 
     private val longPrefixes = listOf(
@@ -57,15 +53,10 @@ object NameGeneratorEngine {
         "Shadow", "Crystal", "Eternal", "Forgotten", "Sacred", "Wild", "Pale", "Dark"
     )
 
-    // User-provided custom letter combinations
     private val customCombinations = mutableListOf<String>()
-
-    // Track used names to strongly avoid repeats
     private val usedNames = mutableSetOf<String>()
 
     private fun <T> List<T>.randomItem(): T = this[Random.nextInt(size)]
-
-    // === GENERATION CORE ===
 
     private fun mutateBase(base: String): String {
         val sb = StringBuilder(base.lowercase())
@@ -73,7 +64,7 @@ object NameGeneratorEngine {
 
         when (mutationType) {
             0 -> { // Swap a vowel
-                val vowels = "aeiou"
+                val vowels = listOf('a', 'e', 'i', 'o', 'u')
                 val indices = sb.indices.filter { sb[it] in vowels }
                 if (indices.isNotEmpty()) {
                     val idx = indices.randomItem()
@@ -105,7 +96,6 @@ object NameGeneratorEngine {
             }
         }
         
-        // Ensure length is at least 4
         if (sb.length < 4) {
             sb.append(mutationSuffixes.randomItem())
         }
@@ -118,7 +108,6 @@ object NameGeneratorEngine {
         val targetIndices = sb.indices.filter { sb[it].lowercaseChar() in vocalizationMap.keys }
         if (targetIndices.isEmpty()) return input
         
-        // Only vocalize ONE letter to keep it natural
         val idx = targetIndices.randomItem()
         val originalChar = sb[idx].lowercaseChar()
         val isUpper = sb[idx].isUpperCase()
@@ -156,10 +145,8 @@ object NameGeneratorEngine {
         var candidate: String
 
         do {
-            // 1. Generate the base mutated name
             candidate = generateBaseName(style)
 
-            // 2. Custom combinations (46% chance)
             if (customCombinations.isNotEmpty() && Random.nextFloat() < 0.46f) {
                 val custom = customCombinations.randomItem()
                 candidate = when (Random.nextInt(3)) {
@@ -169,18 +156,15 @@ object NameGeneratorEngine {
                 }
             }
 
-            // 3. Vocalization (33% chance, only for specific cultures)
             if (Random.nextFloat() < 0.33f && style in vocalizedCultures) {
                 candidate = injectVocalization(candidate)
             }
 
-            // 4. Normalize
             candidate = candidate
                 .replace(Regex("\\s+"), "")
-                .filter { it.isLetter() } // strip any weird artifacts
+                .filter { it.isLetter() }
                 .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
-            // Ensure it's not too short
             if (candidate.length < 3) {
                 candidate += mutationSuffixes.randomItem()
             }
@@ -190,7 +174,6 @@ object NameGeneratorEngine {
 
         usedNames.add(candidate)
 
-        // Prevent memory growth
         if (usedNames.size > 800) {
             val toRemove = usedNames.take(300)
             usedNames.removeAll(toRemove.toSet())
