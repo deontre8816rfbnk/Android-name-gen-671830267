@@ -33,6 +33,9 @@ object NameGeneratorEngine {
     private val chineseBases = listOf("Wei", "Feng", "Tao", "Jun", "Lei", "Hao", "Ming", "Chen", "Yu", "Lin", "Jian", "Hui")
 
     private val mutationSuffixes = listOf("us", "ia", "iel", "is", "an", "or", "yx", "ax", "eth", "in", "os", "ar")
+    
+    // Unorthodox clusters to add slight unconventionality
+    private val unorthodoxClusters = listOf("aei", "vz", "kh", "thl", "ss", "rr", "yy", "ou", "io", "ae", "zh", "wr")
 
     private val vocalizationMap = mapOf(
         'a' to listOf('á', 'à', 'â', 'ä'),
@@ -56,11 +59,38 @@ object NameGeneratorEngine {
     private val customCombinations = mutableListOf<String>()
     private val usedNames = mutableSetOf<String>()
 
+    // === CONTEXTUAL LEARNING STATE ===    private val learnedNames = mutableListOf<String>()
+    private val learnedSyllables = mutableListOf<String>()
+
+    // === DYNAMIC INTERVAL STATE ===
+    private var generationCycleCount = 0
+    private var customComboInterval = Random.nextInt(2, 5) // Every 2 to 4 requests
+
     private fun <T> List<T>.randomItem(): T = this[Random.nextInt(size)]
+
+    // === CONTEXTUAL LEARNING API ===
+    fun ingestLearnedNames(names: List<String>) {
+        learnedNames.clear()
+        learnedSyllables.clear()
+        
+        learnedNames.addAll(names.filter { it.isNotBlank() })
+        
+        // Extract 2-4 letter chunks (syllables) from learned names
+        names.forEach { name ->
+            val cleanName = name.lowercase().filter { it.isLetter() }
+            if (cleanName.length >= 4) {
+                val chunkSize = Random.nextInt(2, 5)
+                if (cleanName.length >= chunkSize) {
+                    val startIndex = Random.nextInt(0, cleanName.length - chunkSize + 1)
+                    learnedSyllables.add(cleanName.substring(startIndex, startIndex + chunkSize))
+                }
+            }
+        }
+    }
 
     private fun mutateBase(base: String): String {
         val sb = StringBuilder(base.lowercase())
-        val mutationType = Random.nextInt(4)
+        val mutationType = Random.nextInt(5) // Added 5th mutation type
 
         when (mutationType) {
             0 -> { // Swap a vowel
@@ -94,6 +124,12 @@ object NameGeneratorEngine {
                     sb.deleteCharAt(idx)
                 }
             }
+            4 -> { // Inject unorthodox cluster
+                if (sb.length > 3) {
+                    val insertPos = Random.nextInt(1, sb.length - 2)
+                    sb.insert(insertPos, unorthodoxClusters.randomItem())
+                }
+            }
         }
         
         if (sb.length < 4) {
@@ -120,6 +156,12 @@ object NameGeneratorEngine {
     }
 
     private fun generateBaseName(style: NameStyle): String {
+        // Contextual Learning: 40% chance to use a learned name directly if available
+        if (learnedNames.isNotEmpty() && Random.nextFloat() < 0.40f) {
+            return mutateBase(learnedNames.randomItem())
+        }
+        
+        // Fallback to cultural/real-world bases
         return when (style) {
             NameStyle.JAPANESE -> (1..3).map { japaneseBases.randomItem().take(Random.nextInt(2, 4)) }.joinToString("")
             NameStyle.CHINESE -> (1..2).map { chineseBases.randomItem().take(Random.nextInt(2, 3)) }.joinToString("")
@@ -147,7 +189,8 @@ object NameGeneratorEngine {
         do {
             candidate = generateBaseName(style)
 
-            if (customCombinations.isNotEmpty() && Random.nextFloat() < 0.46f) {
+            // Dynamic Custom Combination Interval Check
+            if (customCombinations.isNotEmpty() && generationCycleCount >= customComboInterval) {
                 val custom = customCombinations.randomItem()
                 candidate = when (Random.nextInt(3)) {
                     0 -> if (candidate.length > 2) candidate.dropLast(2) + custom else custom + candidate
@@ -156,10 +199,12 @@ object NameGeneratorEngine {
                 }
             }
 
+            // Vocalization (33% chance, only for specific cultures)
             if (Random.nextFloat() < 0.33f && style in vocalizedCultures) {
                 candidate = injectVocalization(candidate)
             }
 
+            // Normalize and clean up
             candidate = candidate
                 .replace(Regex("\\s+"), "")
                 .filter { it.isLetter() }
@@ -197,8 +242,28 @@ object NameGeneratorEngine {
         }
     }
 
+    // Enforce strict uniqueness per batch request
     fun generateBatch(type: NameStyle, count: Int = 4): List<String> {
-        return List(count) { generateName(type) }
+        // Update cycle counter
+        generationCycleCount++
+        // Reset interval dynamically (2 to 4)
+        if (generationCycleCount >= customComboInterval) {
+            generationCycleCount = 0
+            customComboInterval = Random.nextInt(2, 5)
+        }
+
+        val batchNames = mutableSetOf<String>()
+        var safetyCounter = 0
+        
+        while (batchNames.size < count && safetyCounter < count * 20) {
+            val newName = generateName(type)
+            if (newName !in batchNames) {
+                batchNames.add(newName)
+            }
+            safetyCounter++
+        }
+        
+        return batchNames.toList()
     }
 
     // === CUSTOM COMBINATIONS API ===
