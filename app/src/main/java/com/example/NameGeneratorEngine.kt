@@ -8,6 +8,7 @@ enum class NameStyle(val displayName: String, val key: String) {
     SHORT("Short", "short"),
     LONG("Long", "long"),
     GERMAN("German", "german"),
+    FRENCH("French", "french"), // Added French as requested
     SPANISH("Spanish", "spanish"),
     BRITISH("British", "british"),
     AMERICAN("American", "american"),
@@ -19,46 +20,36 @@ enum class NameStyle(val displayName: String, val key: String) {
 
 object NameGeneratorEngine {
 
-    // === CORE BUILDING BLOCKS ===
-    private val prefixes = mutableListOf(
-        "Ael", "Aer", "Al", "An", "Ar", "Ash", "Bel", "Bri", "Cael", "Cal", "Cel", "Cor", "Dael", "Dar", "Del",
-        "Eld", "El", "Ely", "Fael", "Fen", "Gal", "Gwen", "Hal", "Ith", "Kael", "Kel", "Lor", "Lyn", "Mal",
-        "Mir", "Mor", "Nal", "Ner", "Or", "Quel", "Rav", "Rey", "Sar", "Sel", "Syl", "Thal", "Thor", "Val",
-        "Vel", "Vor", "Wyn", "Xan", "Yel", "Zan", "Zha", "Dre", "Nyx", "Orr", "Quin", "Riven", "Sor", "Tor",
-        "Ull", "Vex", "Wren", "Yara", "Zor", "Briar", "Cyr", "Dusk", "Ember", "Frost", "Grim", "Hollow",
-        "Ivor", "Jor", "Keth", "Lir", "Morr", "Nox", "Onyx", "Pyre", "Rook", "Shade", "Thorn", "Umber"
-    )
+    // === REAL-LIFE NAME BASES ===
+    // Used as a foundation, then mutated to create new, natural-sounding names
+    private val normalBases = listOf("Arthur", "Elara", "Roland", "Lyra", "Kael", "Rowan", "Nyx", "Sylas", "Elowen", "Gael", "Isolde", "Tristan", "Mira", "Dorian", "Vera", "Finn", "Luna", "Leo", "Maeve", "Silas")
+    private val germanBases = listOf("Albert", "Friedrich", "Ludwig", "Heinrich", "Wilhelm", "Stefan", "Lukas", "Markus", "Jurgen", "Klaus", "Werner", "Felix")
+    private val frenchBases = listOf("Louis", "Antoine", "Pierre", "Jacques", "Michel", "Laurent", "Pascal", "Dominique", "Claude", "Marc", "Paul", "Henri")
+    private val spanishBases = listOf("Mateo", "Diego", "Carlos", "Javier", "Luis", "Pablo", "Miguel", "Rafael", "Fernando", "Alejandro", "Sergio")
+    private val britishBases = listOf("Oliver", "George", "Harry", "Jack", "Jacob", "Charlie", "Thomas", "James", "William", "Henry")
+    private val americanBases = listOf("James", "John", "Robert", "Michael", "David", "Richard", "Joseph", "Thomas", "Charles", "Daniel")
+    private val arabicBases = listOf("Ahmed", "Omar", "Tariq", "Khalid", "Rami", "Sami", "Nasser", "Hadi", "Malik", "Zayd", "Faris", "Jamil", "Rashid", "Karim")
+    private val turkishBases = listOf("Emir", "Yigit", "Baris", "Cihan", "Volkan", "Serdar", "Okan", "Deniz", "Berk", "Kerem", "Onur", "Mert")
+    private val japaneseBases = listOf("Haruto", "Yuto", "Sota", "Yuki", "Hiroshi", "Kenji", "Riku", "Kaito", "Sora", "Rin", "Aoi", "Ren")
+    private val chineseBases = listOf("Wei", "Feng", "Tao", "Jun", "Lei", "Hao", "Ming", "Chen", "Yu", "Lin", "Jian", "Hui")
 
-    private val middles = mutableListOf(
-        "an", "ar", "en", "er", "ia", "iel", "in", "ion", "ir", "is", "ith", "or", "oth", "ul", "un", "ur",
-        "yn", "ys", "ae", "ei", "ai", "oa", "ua", "dra", "drae", "lith", "mir", "nor", "riel", "ther", "vyn",
-        "lle", "au", "ghe", "llighe", "vlle", "ndor", "thir", "quen", "vynne", "rith", "sira", "lora",
-        "keth", "miri", "thal", "vorn", "zel", "rian", "dor", "fen", "gar", "hel", "jor", "kal",
-        "llae", "ghul", "vryn", "skarn", "drak", "morn", "thel", "vash", "kor", "ryn", "syl", "vor",
-        "ae", "oa", "ua", "ie", "ue", "yri", "ora", "ira", "ula", "ena", "ara", "yna"
-    )
+    // Mutations to apply to real names to make them "weird/new" but valid
+    private val mutationSuffixes = listOf("us", "ia", "iel", "is", "an", "or", "yx", "ax", "eth", "in", "os", "ar")
 
-    private val suffixes = mutableListOf(
-        "a", "ae", "an", "ar", "ath", "en", "er", "ia", "iel", "in", "ion", "is", "ith", "or", "os", "oth",
-        "ul", "um", "us", "yn", "ys", "ara", "aria", "elle", "ora", "oria", "wyn", "eth", "iel",
-        "wood", "haven", "mere", "fell", "ridge", "vale", "moor", "crest", "spire", "reach", "hold",
-        "heim", "stadt", "burg", "dorf", "land", "stein", "berg", "wald", "ford", "ham", "ton", "bury"
+    // Vocalization maps for cultures that use them
+    private val vocalizationMap = mapOf(
+        'a' to listOf('á', 'à', 'â', 'ä'),
+        'e' to listOf('é', 'è', 'ê', 'ë'),
+        'i' to listOf('í', 'î', 'ï'),
+        'o' to listOf('ó', 'ô', 'ö'),
+        'u' to listOf('ú', 'û', 'ü'),
+        'c' to listOf('ç'),
+        's' to listOf('ş'),
+        'g' to listOf('ğ')
     )
-
-    // Cultural specific
-    private val germanParts = listOf("berg", "stein", "wald", "heim", "stadt", "burg", "dorf", "land", "hof", "bach", "tal", "feld", "brück", "hausen", "ringen", "fels", "see")
-    private val spanishParts = listOf("ía", "éz", "án", "ón", "illo", "ito", "eño", "oso", "ado", "iente", "ario", "uelo", "anza", "esco", "uelo", "ín")
-    private val britishParts = listOf("shire", "ham", "ton", "ford", "bury", "chester", "field", "wood", "worth", "ley", "by", "wick", "stead", "mont", "brook", "well")
-    private val americanParts = listOf("ville", "ton", "burg", "field", "wood", "creek", "ridge", "view", "land", "port", "side", "hill", "grove", "falls", "springs")
-    private val arabicParts = listOf("al-", "ibn-", "bin-", "abd-", "nur", "din", "ullah", "karim", "rashid", "saif", "zayn", "farid", "hakim", "jalal", "noor", "amir")
-    private val turkishParts = listOf("ğlu", "lar", "ler", "lik", "cı", "çi", "taş", "kaya", "yıldız", "demir", "çınar", "güneş", "aydın", "öz", "yılmaz", "kaya")
-    private val japaneseParts = listOf("shi", "to", "ka", "mi", "yo", "ra", "tsu", "no", "ri", "sa", "ki", "na", "yu", "ha", "ma", "ko", "aya", "sora", "haru", "yuki")
-    private val chineseParts = listOf("li", "wei", "ming", "hua", "xin", "yu", "chen", "yang", "feng", "ling", "hao", "jun", "tao", "yan", "qi", "zhe", "xuan", "lei")
-
-    private val specialChars = listOf(
-        "à", "á", "â", "ä", "å", "ă", "è", "é", "ê", "ë", "ì", "í", "î", "ï",
-        "ò", "ó", "ô", "ö", "ù", "ú", "û", "ü", "ý", "ÿ", "ñ", "ç", "ş", "ğ", "ı", "ț", "ș"
-    )
+    
+    // Cultures that are allowed to have vocalizations
+    private val vocalizedCultures = listOf(NameStyle.FRENCH, NameStyle.GERMAN, NameStyle.SPANISH, NameStyle.TURKISH)
 
     private val longPrefixes = listOf(
         "New", "Old", "Great", "High", "Deep", "Far", "North", "South", "East", "West",
@@ -66,7 +57,7 @@ object NameGeneratorEngine {
         "Shadow", "Crystal", "Eternal", "Forgotten", "Sacred", "Wild", "Pale", "Dark"
     )
 
-    // User-provided custom letter combinations (can be added at runtime)
+    // User-provided custom letter combinations
     private val customCombinations = mutableListOf<String>()
 
     // Track used names to strongly avoid repeats
@@ -74,81 +65,89 @@ object NameGeneratorEngine {
 
     private fun <T> List<T>.randomItem(): T = this[Random.nextInt(size)]
 
-    // === ADVANCED GENERATION CORE ===
+    // === GENERATION CORE ===
 
-    private fun injectSpecialChars(input: String): String {
-        if (input.length < 3 || Random.nextFloat() > 0.42f) return input
-        val result = StringBuilder(input)
-        val positions = (1 until input.length - 1).shuffled().take(Random.nextInt(1, 3))
-        for (pos in positions) {
-            if (result[pos].isLetter()) {
-                result.setCharAt(pos, specialChars.randomItem()[0])
-            }
-        }
-        return result.toString()
-    }
+    private fun mutateBase(base: String): String {
+        val sb = StringBuilder(base.lowercase())
+        val mutationType = Random.nextInt(4)
 
-    private fun buildFromParts(): String {
-        val useCustom = customCombinations.isNotEmpty() && Random.nextFloat() < 0.45f
-
-        return when {
-            useCustom -> {
-                val custom = customCombinations.randomItem()
-                val prefix = prefixes.randomItem()
-                val suffix = suffixes.randomItem()
-                when (Random.nextInt(4)) {
-                    0 -> custom.replaceFirstChar { it.uppercase() } + suffix
-                    1 -> prefix + custom
-                    2 -> prefix + custom + suffix
-                    else -> custom.replaceFirstChar { it.uppercase() } + middles.randomItem() + suffix
+        when (mutationType) {
+            0 -> { // Swap a vowel
+                val vowels = "aeiou"
+                val indices = sb.indices.filter { sb[it] in vowels }
+                if (indices.isNotEmpty()) {
+                    val idx = indices.randomItem()
+                    sb.setCharAt(idx, vowels.randomItem())
                 }
             }
-            Random.nextFloat() < 0.25f -> {
-                // Longer experimental names
-                val p = prefixes.randomItem()
-                val m1 = middles.randomItem()
-                val m2 = middles.randomItem()
-                val m3 = if (Random.nextBoolean()) middles.randomItem().take(Random.nextInt(2, 4)) else ""
-                val s = suffixes.randomItem()
-                p + m1 + m2 + m3 + s
+            1 -> { // Change ending to a fantasy suffix
+                if (sb.length > 3) {
+                    val cut = Random.nextInt(2, 4)
+                    sb.delete(sb.length - cut, sb.length)
+                    sb.append(mutationSuffixes.randomItem())
+                }
             }
-            Random.nextFloat() < 0.55f -> {
-                prefixes.randomItem() + middles.randomItem() + suffixes.randomItem()
+            2 -> { // Duplicate a consonant
+                val consonants = "bcdfghjklmnpqrstvwxyz"
+                val indices = sb.indices.filter { sb[it] in consonants }
+                if (indices.isNotEmpty()) {
+                    val idx = indices.randomItem()
+                    sb.insert(idx + 1, sb[idx])
+                }
             }
-            else -> {
-                val m = middles.randomItem()
-                m.replaceFirstChar { it.uppercase() } + middles.randomItem() + suffixes.randomItem()
+            3 -> { // Remove a vowel
+                val vowels = "aeiou"
+                val indices = sb.indices.filter { sb[it] in vowels && it != 0 }
+                if (indices.isNotEmpty()) {
+                    val idx = indices.randomItem()
+                    sb.deleteCharAt(idx)
+                }
             }
         }
+        
+        // Ensure length is at least 4
+        if (sb.length < 4) {
+            sb.append(mutationSuffixes.randomItem())
+        }
+        
+        return sb.toString().replaceFirstChar { it.uppercase() }
     }
 
-    private fun applyCulturalStyle(base: String, style: NameStyle): String {
+    private fun injectVocalization(input: String): String {
+        val sb = StringBuilder(input)
+        val targetIndices = sb.indices.filter { sb[it].lowercaseChar() in vocalizationMap.keys }
+        if (targetIndices.isEmpty()) return input
+        
+        // Only vocalize ONE letter to keep it natural
+        val idx = targetIndices.randomItem()
+        val originalChar = sb[idx].lowercaseChar()
+        val isUpper = sb[idx].isUpperCase()
+        
+        val replacementOptions = vocalizationMap[originalChar] ?: return input
+        val replacement = replacementOptions.randomItem()
+        
+        sb.setCharAt(idx, if (isUpper) replacement.titlecase()[0] else replacement)
+        return sb.toString()
+    }
+
+    private fun generateBaseName(style: NameStyle): String {
         return when (style) {
-            NameStyle.GERMAN -> {
-                val part = germanParts.randomItem()
-                if (Random.nextBoolean()) base + part else part.replaceFirstChar { it.uppercase() } + base.lowercase()
+            NameStyle.JAPANESE -> (1..3).map { japaneseBases.randomItem().take(Random.nextInt(2, 4)) }.joinToString("")
+            NameStyle.CHINESE -> (1..2).map { chineseBases.randomItem().take(Random.nextInt(2, 3)) }.joinToString("")
+            else -> {
+                val realBase = when (style) {
+                    NameStyle.NORMAL -> normalBases.randomItem()
+                    NameStyle.GERMAN -> germanBases.randomItem()
+                    NameStyle.FRENCH -> frenchBases.randomItem()
+                    NameStyle.SPANISH -> spanishBases.randomItem()
+                    NameStyle.BRITISH -> britishBases.randomItem()
+                    NameStyle.AMERICAN -> americanBases.randomItem()
+                    NameStyle.ARABIC -> arabicBases.randomItem()
+                    NameStyle.TURKISH -> turkishBases.randomItem()
+                    else -> normalBases.randomItem()
+                }
+                mutateBase(realBase)
             }
-            NameStyle.SPANISH -> base.dropLastWhile { !it.isLetter() } + spanishParts.randomItem()
-            NameStyle.BRITISH -> base + britishParts.randomItem()
-            NameStyle.AMERICAN -> base + americanParts.randomItem()
-            NameStyle.ARABIC -> {
-                val part = arabicParts.randomItem()
-                if (part.endsWith("-")) part + base.lowercase() else base + part
-            }
-            NameStyle.TURKISH -> base + turkishParts.randomItem()
-            NameStyle.JAPANESE -> {
-                (1..Random.nextInt(2, 4))
-                    .map { japaneseParts.randomItem() }
-                    .joinToString("")
-                    .replaceFirstChar { it.uppercase() }
-            }
-            NameStyle.CHINESE -> {
-                (1..Random.nextInt(2, 3))
-                    .map { chineseParts.randomItem() }
-                    .joinToString("")
-                    .replaceFirstChar { it.uppercase() }
-            }
-            else -> base
         }
     }
 
@@ -157,21 +156,37 @@ object NameGeneratorEngine {
         var candidate: String
 
         do {
-            var base = buildFromParts()
-            base = injectSpecialChars(base)
+            // 1. Generate the base mutated name
+            candidate = generateBaseName(style)
 
-            candidate = when (style) {
-                NameStyle.NORMAL, NameStyle.TWO_PART, NameStyle.SHORT, NameStyle.LONG -> base
-                else -> applyCulturalStyle(base, style)
+            // 2. Custom combinations (46% chance)
+            if (customCombinations.isNotEmpty() && Random.nextFloat() < 0.46f) {
+                val custom = customCombinations.randomItem()
+                candidate = when (Random.nextInt(3)) {
+                    0 -> if (candidate.length > 2) candidate.dropLast(2) + custom else custom + candidate
+                    1 -> if (candidate.length > 2) custom.replaceFirstChar { it.uppercase() } + candidate.drop(2) else custom.replaceFirstChar { it.uppercase() } + candidate
+                    else -> if (candidate.length > 2) candidate.dropLast(candidate.length / 2) + custom else custom
+                }
             }
 
-            // Normalize
+            // 3. Vocalization (33% chance, only for specific cultures)
+            if (Random.nextFloat() < 0.33f && style in vocalizedCultures) {
+                candidate = injectVocalization(candidate)
+            }
+
+            // 4. Normalize
             candidate = candidate
                 .replace(Regex("\\s+"), "")
+                .filter { it.isLetter() } // strip any weird artifacts
                 .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
+            // Ensure it's not too short
+            if (candidate.length < 3) {
+                candidate += mutationSuffixes.randomItem()
+            }
+
             attempts++
-        } while ((candidate in usedNames || candidate.length < 3) && attempts < 60)
+        } while ((candidate in usedNames) && attempts < 60)
 
         usedNames.add(candidate)
 
@@ -189,7 +204,7 @@ object NameGeneratorEngine {
             NameStyle.TWO_PART -> "${generateUniqueName(NameStyle.NORMAL)} ${generateUniqueName(NameStyle.NORMAL)}"
             NameStyle.SHORT -> {
                 val full = generateUniqueName(NameStyle.NORMAL)
-                if (full.length > 8) full.take(Random.nextInt(5, 9)) else full
+                if (full.length > 7) full.take(Random.nextInt(4, 8)) else full
             }
             NameStyle.LONG -> {
                 val extra = if (Random.nextDouble() > 0.5) " ${generateUniqueName(NameStyle.NORMAL)}" else ""
@@ -208,10 +223,6 @@ object NameGeneratorEngine {
         val cleaned = combo.trim().lowercase()
         if (cleaned.length in 2..12 && cleaned !in customCombinations) {
             customCombinations.add(cleaned)
-            // Also inject into middles for broader use
-            if (cleaned !in middles) {
-                middles.add(cleaned)
-            }
         }
     }
 
