@@ -120,40 +120,40 @@ class NameGeneratorViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    fun markSaveToMdFeedback() {
-        _uiState.update { it.copy(isSaveToMdFeedback = true) }
+    // Reads directly from whatever is in the text field (supports manual typing/pasting)
+    fun getSavedNamesAsMarkdownRows(): String {
+        val text = _uiState.value.savedModalText
+        val names = text.split("\n", ",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
+        if (names.isEmpty()) return ""
+
+        val sb = StringBuilder()
+        names.forEach { name ->
+            sb.appendLine("| $name |")
+        }
+        return sb.toString()
+    }
+
+    // Erases the text field and internal memory the exact moment the save button is clicked
+    fun clearSavedNamesAndText() {
+        _uiState.update {
+            it.copy(
+                savedNames = emptyList(),
+                savedModalText = "",
+                isSaveToMdFeedback = true
+            )
+        }
         viewModelScope.launch {
             delay(1600)
             _uiState.update { it.copy(isSaveToMdFeedback = false) }
         }
     }
 
-    // Bug fix: Clear the saved names from memory after writing to MD to prevent duplicates
-    fun clearSavedNames() {
-        _uiState.update {
-            it.copy(
-                savedNames = emptyList(),
-                savedModalText = ""
-            )
-        }
-    }
-
     // Bridge for Contextual Learning
     fun processLearnedNames(names: List<String>) {
         NameGeneratorEngine.ingestLearnedNames(names)
-    }
-
-    fun getSavedNamesAsMarkdownTable(): String {
-        val names = _uiState.value.savedNames
-        if (names.isEmpty()) return "| Name |\n|------|\n"
-
-        val sb = StringBuilder()
-        sb.appendLine("| Name |")
-        sb.appendLine("|------|")
-        names.forEach { name ->
-            sb.appendLine("| $name |")
-        }
-        return sb.toString()
     }
 
     // === Custom Combinations ===
