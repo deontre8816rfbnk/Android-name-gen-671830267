@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +40,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -64,7 +64,8 @@ private val AccentGreen = Color(0xFF28A745)
 fun PlaceNameGeneratorScreen(
     viewModel: NameGeneratorViewModel,
     modifier: Modifier = Modifier,
-    onSaveToMarkdown: (String) -> Unit = {}
+    onSaveToMarkdown: (String) -> Unit = {},
+    onChangeMdFile: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -228,6 +229,7 @@ fun PlaceNameGeneratorScreen(
                     viewModel.markSaveToMdFeedback()
                 },
                 onUpdate = { viewModel.applySavedModalUpdate() },
+                onChangeMdFile = onChangeMdFile,
                 onDismiss = { viewModel.closeSavedModal() }
             )
         }
@@ -338,6 +340,7 @@ private fun SavedNamesModal(
     onTextChange: (String) -> Unit,
     onSaveToMd: () -> Unit,
     onUpdate: () -> Unit,
+    onChangeMdFile: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -427,6 +430,26 @@ private fun SavedNamesModal(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Change Assigned Markdown File Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(9999.dp))
+                        .clickable(onClick = onChangeMdFile)
+                        .padding(vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Change Assigned Markdown File",
+                        color = TextMuted,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        textDecoration = TextDecoration.Underline
+                    )
                 }
             }
         }
