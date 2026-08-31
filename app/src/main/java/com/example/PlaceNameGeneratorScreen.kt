@@ -217,23 +217,24 @@ fun PlaceNameGeneratorScreen(
             }
         }
 
-        // Saved Names Modal
+                // Saved Names Modal
         if (uiState.isSavedModalOpen) {
             SavedNamesModal(
                 text = uiState.savedModalText,
                 isSaveToMd = uiState.isSaveToMdFeedback,
                 onTextChange = { viewModel.updateSavedModalText(it) },
                 onSaveToMd = {
-                    val markdown = viewModel.getSavedNamesAsMarkdownTable()
-                    onSaveToMarkdown(markdown)
-                    viewModel.markSaveToMdFeedback()
+                    val markdownRows = viewModel.getSavedNamesAsMarkdownRows()
+                    if (markdownRows.isNotBlank()) {
+                        onSaveToMarkdown(markdownRows)
+                        viewModel.clearSavedNamesAndText() // This erases the text field immediately
+                    }
                 },
                 onUpdate = { viewModel.applySavedModalUpdate() },
                 onChangeMdFile = onChangeMdFile,
                 onDismiss = { viewModel.closeSavedModal() }
             )
         }
-
         // Custom Combinations Modal
         if (uiState.isCombinationsModalOpen) {
             CombinationsModal(
