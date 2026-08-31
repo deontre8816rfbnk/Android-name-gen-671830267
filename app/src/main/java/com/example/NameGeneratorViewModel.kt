@@ -1,6 +1,8 @@
 package com.example
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +24,9 @@ data class GeneratorUiState(
     val customCombinationsCount: Int = 0
 )
 
-class NameGeneratorViewModel : ViewModel() {
+class NameGeneratorViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val sharedPrefs = application.getSharedPreferences("NameGenPrefs", Context.MODE_PRIVATE)
 
     private val _uiState = MutableStateFlow(
         GeneratorUiState(
@@ -31,6 +35,17 @@ class NameGeneratorViewModel : ViewModel() {
         )
     )
     val uiState: StateFlow<GeneratorUiState> = _uiState.asStateFlow()
+
+    init {
+        // Load saved custom combinations from the device into the engine on startup
+        val savedCombos = sharedPrefs.getStringSet("custom_combinations", emptySet()) ?: emptySet()
+        if (savedCombos.isNotEmpty()) {
+            NameGeneratorEngine.addCustomCombinations(savedCombos.toList())
+            _uiState.update { 
+                it.copy(customCombinationsCount = NameGeneratorEngine.getCustomCombinations().size) 
+            }
+        }
+    }
 
     fun onSelectStyle(style: NameStyle) {
         _uiState.update { it.copy(selectedStyle = style) }
@@ -151,9 +166,14 @@ class NameGeneratorViewModel : ViewModel() {
             .split("\n", ",", " ")
             .map { it.trim().lowercase() }
             .filter { it.length in 2..12 }
+            .toSet() // Use set to avoid duplicates
 
+        // Update Engine
         NameGeneratorEngine.clearCustomCombinations()
-        NameGeneratorEngine.addCustomCombinations(combos)
+        NameGeneratorEngine.addCustomCombinations(combos.toList())
+
+        // Persist to Device Storage so they are never lost
+        sharedPrefs.edit().putStringSet("custom_combinations", combos).apply()
 
         _uiState.update {
             it.copy(
