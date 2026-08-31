@@ -76,11 +76,11 @@ class MainActivity : ComponentActivity() {
                     PlaceNameGeneratorScreen(
                         viewModel = viewModel,
                         modifier = Modifier.padding(innerPadding),
-                        onSaveToMarkdown = { markdown ->
-                            pendingMarkdownContent = markdown
+                        onSaveToMarkdown = { markdownRows ->
+                            pendingMarkdownContent = markdownRows
                             val currentUri = savedMdUri
                             if (currentUri != null) {
-                                writeMarkdownToUri(Uri.parse(currentUri), markdown)
+                                writeMarkdownToUri(Uri.parse(currentUri), pendingMarkdownContent!!)
                                 pendingMarkdownContent = null
                             } else {
                                 openDocumentLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*"))
@@ -107,26 +107,38 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun writeMarkdownToUri(uri: Uri, newTableContent: String) {
+    private fun writeMarkdownToUri(uri: Uri, newRowsContent: String) {
         try {
             val existingContent = readTextFromUri(uri) ?: ""
+            
+            // Extract just the rows from the incoming content
+            val newRows = newRowsContent.lines()
+                .filter { it.startsWith("|") && !it.contains("Name") && !it.contains("------") }
 
-            val finalContent = if (existingContent.contains("| Name |") || existingContent.contains("|------|")) {
-                val newRows = newTableContent
-                    .lines()
-                    .filter { it.startsWith("|") && !it.contains("Name") && !it.contains("------") }
-                    .joinToString("\n")
+            val finalContent: String
 
-                if (newRows.isBlank()) {
-                    existingContent
+            // Check if the file already has a unified table
+            if (existingContent.contains("| Name |") && existingContent.contains("|------|")) {
+                // Find the separator and insert the new rows directly underneath it
+                val separatorIndex = existingContent.indexOf("|------|")
+                if (separatorIndex != -1) {
+                    val insertPosition = separatorIndex + "|------|".length
+                    val before = existingContent.substring(0, insertPosition)
+                    val after = existingContent.substring(insertPosition)
+                    
+                    // Splice the new rows right into the existing table
+                    finalContent = before + "\n" + newRows.joinToString("\n") + after
                 } else {
-                    existingContent.trimEnd() + "\n" + newRows + "\n"
+                    // Fallback to appending at the end
+                    finalContent = existingContent.trimEnd() + "\n" + newRows.joinToString("\n") + "\n"
                 }
             } else {
-                if (existingContent.isBlank()) {
-                    newTableContent
+                // No table exists yet in the file, create the unified table
+                val tableHeader = "| Name |\n|------|\n"
+                finalContent = if (existingContent.isBlank()) {
+                    tableHeader + newRows.joinToString("\n")
                 } else {
-                    existingContent.trimEnd() + "\n\n" + newTableContent
+                    existingContent.trimEnd() + "\n\n" + tableHeader + newRows.joinToString("\n")
                 }
             }
 
@@ -158,7 +170,6 @@ class MainActivity : ComponentActivity() {
             val parsedNames = existingContent.lines()
                 .filter { it.startsWith("|") && !it.contains("Name") && !it.contains("------") }
                 .mapNotNull { row ->
-                    // Split by |, trim, and get the first column (index 1 after split)
                     val parts = row.split("|").map { p -> p.trim() }
                     if (parts.size > 1 && parts[1].isNotEmpty()) parts[1] else null
                 }
