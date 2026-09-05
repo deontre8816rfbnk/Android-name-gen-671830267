@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
         if (uri != null) {
             saveMdUriAndPermissions(uri)
             readAndProcessNames(uri)
-            Toast.makeText(this, "Markdown file updated!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Markdown file linked!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -57,7 +57,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Setup Immersive Full Screen Mode
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -65,9 +64,8 @@ class MainActivity : ComponentActivity() {
 
         savedMdUri = sharedPrefs.getString("md_uri", null)
 
-        // If a file is already assigned, read it immediately to learn existing names
-        savedMdUri?.let { 
-            readAndProcessNames(Uri.parse(it)) 
+        savedMdUri?.let {
+            readAndProcessNames(Uri.parse(it))
         }
 
         setContent {
@@ -99,7 +97,6 @@ class MainActivity : ComponentActivity() {
         try {
             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             contentResolver.takePersistableUriPermission(uri, takeFlags)
-
             savedMdUri = uri.toString()
             sharedPrefs.edit().putString("md_uri", savedMdUri).apply()
         } catch (e: SecurityException) {
@@ -107,52 +104,74 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Appends new names ONLY to the existing table's first column (Names).
+     * Never creates a second table if one already exists.
+     * Pads empty cells so multi-column tables stay valid.
+     */
     private fun writeMarkdownToUri(uri: Uri, newRowsContent: String) {
         try {
             val existingContent = readTextFromUri(uri) ?: ""
-            
-            // Extract just the names from the incoming markdown rows
+
+            // Extract pure names from the incoming content
             val newNames = newRowsContent.lines()
-                .filter { it.trim().startsWith("|") && !it.contains("Name") && !it.contains("---") && !it.contains("------") }
-                .map { it.replace("|", "").trim() }
+                .map { it.trim() }
                 .filter { it.isNotEmpty() }
+                .map { line ->
+                    // Handle both "| name |" format and plain name
+                    if (line.startsWith("|")) {
+                        line.split("|").map { it.trim() }.getOrNull(1) ?: line.replace("|", "").trim()
+                    } else {
+                        line
+                    }
+                }
+                .filter { it.isNotEmpty() && !it.equals("Name", ignoreCase = true) && !it.equals("Names", ignoreCase = true) }
 
             if (newNames.isEmpty()) {
                 Toast.makeText(this, "No valid names to save", Toast.LENGTH_SHORT).show()
                 return
             }
 
-            // Convert back to strict rows to insert
-            val newRowsToInsert = newNames.map { "| $it |" }
-
             val lines = existingContent.lines().toMutableList()
+
+            // Find header + separator of the first markdown table
+            var headerIndex = -1
             var separatorIndex = -1
-            
-            // Bulletproof table separator detection: finds any line like |---| or | --- | or |------|
+            var columnCount = 1
+
             for (i in lines.indices) {
                 val line = lines[i].trim()
-                if (line.startsWith("|") && line.endsWith("|")) {
-                    val inner = line.drop(1).dropLast(1).replace(" ", "")
-                    if (inner.isNotEmpty() && inner.all { it == '-' }) {
-                        separatorIndex = i
-                        break
+                if (line.startsWith("|") && line.endsWith("|") && line.contains("---")) {
+                    // This is the separator line
+                    separatorIndex = i
+                    if (i > 0) {
+                        headerIndex = i - 1
+                        val headerCells = lines[headerIndex].split("|").map { it.trim() }.filter { it.isNotEmpty() }
+                        columnCount = headerCells.size.coerceAtLeast(1)
                     }
+                    break
                 }
             }
-            
+
             val finalContent: String
-            
+
             if (separatorIndex != -1) {
-                // Table exists! Insert rows strictly AFTER the separator line.
-                lines.addAll(separatorIndex + 1, newRowsToInsert)
+                // Existing table found → append properly padded rows
+                val newRows = newNames.map { name ->
+                    val cells = MutableList(columnCount) { "" }
+                    cells[0] = name
+                    "| " + cells.joinToString(" | ") + " |"
+                }
+                lines.addAll(separatorIndex + 1, newRows)
                 finalContent = lines.joinToString("\n")
             } else {
-                // Only if absolutely NO table exists in the file, create one at the bottom
-                val tableHeader = "| Name |\n|------|"
+                // No table at all → create a simple one-column table (only if file is empty of tables)
+                val tableHeader = "| Names |\n|------|"
+                val rows = newNames.joinToString("\n") { "| $it |" }
                 finalContent = if (existingContent.isBlank()) {
-                    "$tableHeader\n${newRowsToInsert.joinToString("\n")}"
+                    "$tableHeader\n$rows"
                 } else {
-                    "${existingContent.trimEnd()}\n\n$tableHeader\n${newRowsToInsert.joinToString("\n")}"
+                    "${existingContent.trimEnd()}\n\n$tableHeader\n$rows"
                 }
             }
 
@@ -162,9 +181,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            Toast.makeText(this, "Names saved to Markdown file", Toast.LENGTH_SHORT).show()
-            
-            // After saving, read the file again to update the learning context
+            Toast.makeText(this, "Names added to existing table", Toast.LENGTH_SHORT).show()
             readAndProcessNames(uri)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -179,12 +196,13 @@ class MainActivity : ComponentActivity() {
     private fun readAndProcessNames(uri: Uri) {
         try {
             val existingContent = readTextFromUri(uri) ?: return
-            
+
             val parsedNames = existingContent.lines()
-                .filter { it.trim().startsWith("|") && !it.contains("Name") && !it.contains("---") && !it.contains("------") }
+                .filter { it.trim().startsWith("|") && !it.contains("---") }
                 .mapNotNull { row ->
                     val parts = row.split("|").map { p -> p.trim() }
-                    if (parts.size > 1 && parts[1].isNotEmpty()) parts[1] else null
+                    // Take the first real cell (Names column)
+                    parts.getOrNull(1)?.takeIf { it.isNotEmpty() && !it.equals("Name", true) && !it.equals("Names", true) }
                 }
 
             if (parsedNames.isNotEmpty()) {

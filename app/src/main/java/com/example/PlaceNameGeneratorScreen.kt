@@ -40,25 +40,25 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-// Colors
-private val BgLight = Color(0xFFF8F9FA)
-private val CardBg = Color(0xFFFFFFFF)
-private val TextDark = Color(0xFF212529)
-private val TextMuted = Color(0xFF6C757D)
-private val BtnPrimaryBg = Color(0xFF212529)
-private val BtnSecondaryBg = Color(0xFFE9ECEF)
-private val BtnSecondaryText = Color(0xFF343A40)
-private val PillBg = Color(0xFFE9ECEF)
-private val PillSelectedBg = Color(0xFF343A40)
-private val NameBoxBg = Color(0xFFF1F3F5)
-private val BorderLight = Color(0xFFE9ECEF)
-private val AccentGreen = Color(0xFF28A745)
+// Dark theme colors (matching Tviy)
+private val BgDark = Color(0xFF0A0A0A)
+private val CardBg = Color(0xFF141414)
+private val TextPrimary = Color.White
+private val TextMuted = Color.White.copy(alpha = 0.55f)
+private val BtnPrimaryBg = Color.White
+private val BtnPrimaryText = Color.Black
+private val BtnSecondaryBg = Color(0xFF1C1C1C)
+private val BtnSecondaryText = Color.White
+private val PillBg = Color.White.copy(alpha = 0.08f)
+private val PillSelectedBg = Color.White
+private val NameBoxBg = Color(0xFF1A1A1A)
+private val BorderSubtle = Color.White.copy(alpha = 0.10f)
+private val AccentGreen = Color(0xFF10B981)
 
 @Composable
 fun PlaceNameGeneratorScreen(
@@ -72,14 +72,14 @@ fun PlaceNameGeneratorScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BgLight)
+            .background(BgDark)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
         ) {
-            // Top bar - Saved count top right
+            // Top bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -98,7 +98,7 @@ fun PlaceNameGeneratorScreen(
             // Title
             Text(
                 text = "Place Name Generator",
-                color = TextDark,
+                color = TextPrimary,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
@@ -107,7 +107,7 @@ fun PlaceNameGeneratorScreen(
                 textAlign = TextAlign.Center
             )
 
-            // Vertically stacked name boxes
+            // Name boxes
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -128,13 +128,13 @@ fun PlaceNameGeneratorScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // BOTTOM CONTROLS
+            // Bottom controls
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 20.dp)
             ) {
-                // Horizontal scrollable style filters
+                // Style pills
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -152,13 +152,13 @@ fun PlaceNameGeneratorScreen(
                     }
                 }
 
-                // Three buttons: +  |  Generate  |  View Saved
+                // Buttons row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // + button for custom combinations
+                    // + combinations
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -189,7 +189,7 @@ fun PlaceNameGeneratorScreen(
                     ) {
                         Text(
                             text = "Generate",
-                            color = Color.White,
+                            color = BtnPrimaryText,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -217,7 +217,7 @@ fun PlaceNameGeneratorScreen(
             }
         }
 
-                // Saved Names Modal
+        // Saved Names Modal
         if (uiState.isSavedModalOpen) {
             SavedNamesModal(
                 text = uiState.savedModalText,
@@ -227,7 +227,7 @@ fun PlaceNameGeneratorScreen(
                     val markdownRows = viewModel.getSavedNamesAsMarkdownRows()
                     if (markdownRows.isNotBlank()) {
                         onSaveToMarkdown(markdownRows)
-                        viewModel.clearSavedNamesAndText() // This erases the text field immediately
+                        viewModel.clearSavedNamesAndText()
                     }
                 },
                 onUpdate = { viewModel.applySavedModalUpdate() },
@@ -235,7 +235,8 @@ fun PlaceNameGeneratorScreen(
                 onDismiss = { viewModel.closeSavedModal() }
             )
         }
-        // Custom Combinations Modal
+
+        // Combinations Modal
         if (uiState.isCombinationsModalOpen) {
             CombinationsModal(
                 text = uiState.combinationsText,
@@ -257,7 +258,7 @@ private fun NameBoxItem(
     index: Int
 ) {
     val checkColor by animateColorAsState(
-        targetValue = if (isSavedSuccess) AccentGreen else Color(0xFF495057),
+        targetValue = if (isSavedSuccess) AccentGreen else Color.White.copy(alpha = 0.25f),
         animationSpec = tween(300),
         label = "checkColor"
     )
@@ -268,19 +269,19 @@ private fun NameBoxItem(
             .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(NameBoxBg)
-            .border(1.dp, BorderLight, RoundedCornerShape(14.dp))
+            .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         BasicTextField(
             value = name,
             onValueChange = onNameChange,
             textStyle = TextStyle(
-                color = TextDark,
+                color = TextPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center
             ),
-            cursorBrush = SolidColor(TextDark),
+            cursorBrush = SolidColor(TextPrimary),
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
@@ -327,7 +328,7 @@ private fun OptionPill(
     ) {
         Text(
             text = text,
-            color = if (isSelected) Color.White else TextMuted,
+            color = if (isSelected) Color.Black else TextMuted,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
         )
@@ -352,7 +353,7 @@ private fun SavedNamesModal(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            Column(modifier = Modifier.padding(22.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -360,39 +361,36 @@ private fun SavedNamesModal(
                 ) {
                     Text(
                         text = "Saved Names",
-                        color = TextDark,
+                        color = TextPrimary,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     )
-                    Box(
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = TextMuted,
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onDismiss),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
-                    }
+                            .size(24.dp)
+                            .clickable { onDismiss() }
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 BasicTextField(
                     value = text,
                     onValueChange = onTextChange,
-                    textStyle = TextStyle(color = TextDark, fontSize = 15.sp, lineHeight = 22.sp),
-                    cursorBrush = SolidColor(TextDark),
+                    textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp),
+                    cursorBrush = SolidColor(TextPrimary),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 150.dp, max = 260.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFFAFAFA))
-                        .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
+                        .heightIn(min = 160.dp)
+                        .background(NameBoxBg, RoundedCornerShape(12.dp))
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
                         .padding(14.dp)
-                        .verticalScroll(rememberScrollState())
                 )
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -402,55 +400,28 @@ private fun SavedNamesModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp)
-                            .clip(RoundedCornerShape(9999.dp))
-                            .background(BtnPrimaryBg)
-                            .clickable(onClick = onSaveToMd),
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BtnSecondaryBg)
+                            .clickable { onChangeMdFile() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = if (isSaveToMd) "Saved!" else "Save to .md",
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Text("Change .md", color = BtnSecondaryText, fontWeight = FontWeight.SemiBold)
                     }
-
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp)
-                            .clip(RoundedCornerShape(9999.dp))
-                            .background(BtnSecondaryBg)
-                            .clickable(onClick = onUpdate),
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSaveToMd) AccentGreen else BtnPrimaryBg)
+                            .clickable { onSaveToMd() },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Update List",
-                            color = BtnSecondaryText,
-                            fontSize = 14.sp,
+                            if (isSaveToMd) "Saved!" else "Save to .md",
+                            color = if (isSaveToMd) Color.White else BtnPrimaryText,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Change Assigned Markdown File Button
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(9999.dp))
-                        .clickable(onClick = onChangeMdFile)
-                        .padding(vertical = 4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Change Assigned Markdown File",
-                        color = TextMuted,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        textDecoration = TextDecoration.Underline
-                    )
                 }
             }
         }
@@ -473,79 +444,55 @@ private fun CombinationsModal(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            Column(modifier = Modifier.padding(22.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "Letter Combinations",
-                            color = TextDark,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "$count active",
-                            color = TextMuted,
-                            fontSize = 12.sp
-                        )
-                    }
-                    Box(
+                    Text(
+                        text = "Custom Combinations ($count)",
+                        color = TextPrimary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = TextMuted,
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onDismiss),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
-                    }
+                            .size(24.dp)
+                            .clickable { onDismiss() }
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Add combinations (one per line or comma separated).\nThe generator will use them to create more unique names.",
-                    color = TextMuted,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 BasicTextField(
                     value = text,
                     onValueChange = onTextChange,
-                    textStyle = TextStyle(color = TextDark, fontSize = 15.sp, lineHeight = 22.sp),
-                    cursorBrush = SolidColor(TextDark),
+                    textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp),
+                    cursorBrush = SolidColor(TextPrimary),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 140.dp, max = 240.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFFAFAFA))
-                        .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
+                        .heightIn(min = 140.dp)
+                        .background(NameBoxBg, RoundedCornerShape(12.dp))
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
                         .padding(14.dp)
-                        .verticalScroll(rememberScrollState())
                 )
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
-                        .clip(RoundedCornerShape(9999.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(BtnPrimaryBg)
-                        .clickable(onClick = onApply),
+                        .clickable { onApply() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "Apply Combinations",
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text("Apply", color = BtnPrimaryText, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
